@@ -1,0 +1,79 @@
+###############
+#INSTALLATION
+###############
+In a Julia REPL type
+
+using Pkg
+Pkg.activate("path_to/HorrocksMumford")
+using HorrocksMumford
+
+
+
+###############
+#CONTENT
+###############
+The package computes the global modules of HM(u) over affine and projective space according to the methods presented in [AHW] using the following functions.
+
+
+HM_affine(u::ZZMatrix)
+Input is an nxn matrix with zeroes on the diagonal. Output is 
+
+-R a polynomial ring over Q in n variables of type QQMPolyRing thought of as the coordinate ring of affine n-space
+
+-R^2 a free module of rank 2 of type FreeMod which contains the global sections of HM(u)
+
+-the module of global sections of HM(u) of type SubquoModule
+
+-the inclusion HM(u) into R^2 of type SubQuoHom
+
+using intersections. Note that computations take place over the coordinate ring, not the field of rational functions K. To obtain the actual modul of global sections inside K^2 one needs to divide by x_1*...*x_n.
+
+
+
+HM_refhull(u::ZZMatrix)
+Input is an nxn matrix with zeroes on the diagonal. Output is 
+
+-R a polynomial ring over Q in n variables of type QQMPolyRing thought of as the coordinate ring of affine n-space
+
+-R^2 a free module of rank 2 of type FreeMod which contains the global sections of HM(u)
+
+-the module of global sections of HM(u) of type SubquoModule
+
+-the inclusion HM(u) into R^2 of type SubQuoHom
+
+by taking the reflexive hull. Note that computations take place over the coordinate ring, not the field of rational functions K. To obtain the actual modul of global sections inside K^2 one needs to divide by x_1*...*x_n.
+
+
+
+HM_projective(u::ZZMatrix)
+Input is an nxn matrix with zeroes on the diagonal and whose rows add to 0. Output is 
+
+-RG a graded polynomial ring over Q in n variables of type MPolyDecRing thought of as the homogeneous coordinate ring of projective (n-1)-space
+
+-RG^2=RG+RG a free module of rank 2 of type FreeMod which contains the graded module over the homogeneous coordinate ring M corresponding to HM(u)
+
+-the graded module M of type SubquoModule
+
+-the homogeneous inclusion M into RG^2 of type SubQuoHom
+
+using intersections. Note that computations take place over the homogeneous coordinate ring, not the field of rational functions K. To obtain the actual modul of global sections inside K^2 one needs to divide by z_0*...*z_n.
+
+
+
+###############
+#EXAMPLE
+###############
+In a Julia REPL type
+
+using Oscar
+u=matrix(ZZ,3,3,[0 1 0;1 0 -1;0 -1 0])
+R, R2, M, inc=HM_affine(u)
+fitting_ideal(M,0)  #computes the Fitting ideal to check on projectivity
+fitting_ideal(M,1)
+
+
+
+###############
+#References
+###############
+K.\ Altmann, A.\ Hochenegger and F.\ Witt, "The Weil decoration of a reflexive sheaf", 2026
