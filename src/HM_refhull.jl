@@ -53,7 +53,7 @@ function HM_refhull(u)
                 p=p*x[j]
             end
         end
-        genvec[i]=R2([p*p1,p*p2])
+        genvec[i]=R2([p*p1,-p*p2])
     end
     prod=x[1]
     for i in 2:n
