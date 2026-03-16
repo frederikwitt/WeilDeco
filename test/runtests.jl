@@ -145,9 +145,9 @@ end
         result=HM_projective(u)
 
         @test result!==nothing
-        @test length(result)==4
+        @test length(result)==5
 
-        RG,RG2,MG,incG=result
+        RG,RG2,MG,incG,classes=result
 
         #ring checks
         @test RG isa MPolyDecRing
@@ -172,7 +172,16 @@ end
         u=zero_matrix(ZZ,3,3)
         result=HM_projective(u)
         @test result!== nothing
-        RG,RG2,MG,incG=result
+        RG,RG2,MG,incG,classes=result
         @test length(gens(MG))==2
-    end    
+        @test classes[1]==3 && classes[2]==0
+    end
+
+    @testset "Horrocks Mumford" begin
+        u=matrix(ZZ,5,5,[0 1 -1 -1 1;1 0 1 -1 -1;-1 1 0 1 -1;-1 -1 1 0 1;1 -1 -1 1 0])
+        result=HM_projective(u)
+        @test result!== nothing
+        RG,RG2,MG,incG,classes=result
+        @test classes[1]==5 && classes[2]==10 && classes[3]==0 && classes[4]==0
+    end
 end
