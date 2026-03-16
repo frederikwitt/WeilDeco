@@ -26,8 +26,8 @@ function HM_refhull(u)
     
     # define the generating vectors for the module HM'(u)
     genvec=Vector{FreeModElem{QQMPolyRingElem}}(undef,n+2)
-    up=Array{Int}(undef, n, n)
-    um=Array{Int}(undef, n, n)
+    up=Array{Int}(undef,n,n)
+    um=Array{Int}(undef,n,n)
     for i in 1:n
         for j in 1:n
             if u[j,i]>0
@@ -63,40 +63,35 @@ function HM_refhull(u)
     genvec[n+2]=R2([o,prod])
     
     #creates HM'(u) as a submodule of R^2
-    M, incM =sub(R2, genvec)
+    M,incM =sub(R2,genvec)
     
     #creates the dual spaces: incR2d(R2d[1])(R2[1])=R1[1]
-    R2d, incR2d =hom(R2,R1)
-    Md, incMd =hom(M,R1)
+    R2d,incR2d=hom(R2,R1)
+    Md,incMd=hom(M,R1)
     
     #creates the dual map incMD=(incM)^*:R^{2*}\to M^*
     incMD=hom(R2d,Md,[preimage(incMd,compose(incM,incR2d(g))) for g in gens(R2d)])
     
     #creates the doule duals
-    R2dd, incR2dd =hom(R2d,R1)
-    Mdd, incMdd =hom(Md, R1)
+    R2dd,incR2dd=hom(R2d,R1)
+    Mdd,incMdd=hom(Md, R1)
     
     #creates the dual map incMDD=(incMD)^*:M^{**}\to R^{2**}
-    incMDD = hom(Mdd,R2dd,[preimage(incR2dd,compose(incMD,incMdd(g))) for g in gens(Mdd)])
+    incMDD=hom(Mdd,R2dd,[preimage(incR2dd,compose(incMD,incMdd(g))) for g in gens(Mdd)])
         
     #Module iso identifying R2dd with R2
-    iso = hom(R2dd,R2,[R2[1],R2[2]])
+    iso=hom(R2dd,R2,[R2[1],R2[2]])
 
     #canonical module morphism Mdd\to R2
     inc=compose(incMDD,iso)
-    rhM, incrhM=image(inc)
+    rhM,incrhM=image(inc)
     
     #compute a presentation in order to get possibly less generators
     pres=presentation(rhM,minimal=true)
-    N, incN=image(map(pres,0))
-    l=length(gens(N))
-    genvec=Vector{SubquoModuleElem{QQMPolyRingElem}}(undef,l)
-    for i in 1:l
-        genvec[i]=N[i]
-    end
-    rhM, incrhM=sub(R2, genvec)
+    N,incN=image(map(pres,0))
+    rhM,incrhM=sub(R2,gens(N))
    
-    return R, R2, rhM, incrhM
+    return R,R2,rhM,incrhM
 end
 
 

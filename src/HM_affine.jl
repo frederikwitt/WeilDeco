@@ -30,8 +30,8 @@ function HM_affine(u)
     up=Array{Int}(undef,n,n)
     um=Array{Int}(undef,n,n)
     for i in 1:n
-        vectors1[i] = R2([x[i],o])
-        vectors2[i] = R2([o,x[i]])
+        vectors1[i]=R2([x[i],o])
+        vectors2[i]=R2([o,x[i]])
         for j in 1:n
             if u[j,i]>0
                 up[i,j]=u[j,i]
@@ -57,7 +57,7 @@ function HM_affine(u)
     inc=Vector(undef,n)
     M=Vector(undef,n)
     for i in 1:n
-        M[i], inc[i]=sub(R2,[vectors1[i],vectors2[i],vectors3[i]])
+        M[i],inc[i]=sub(R2,[vectors1[i],vectors2[i],vectors3[i]])
     end
 
     #Define the modules for intersection
@@ -66,24 +66,19 @@ function HM_affine(u)
     M_int[1]=M[1]
     inc_int[1]=inc[1]
     for i in 2:n
-        M_int[i], inc_int[i]=intersect(M[i],M_int[i-1])
+        M_int[i],inc_int[i]=intersect(M[i],M_int[i-1])
     end
 
     #Define the intersection \bigcap_{i=1}^nM_i as a submodule of R2
     inc_fin=compose(inc_int[n],inc[n])
-    M_is, inc_is=image(inc_fin) 
+    M_is,inc_is=image(inc_fin) 
     
     #compute a presentation in order to get possibly less generators
     pres=presentation(M_is,minimal=true)
-    N, incN=image(map(pres,0))
-    l=length(gens(N))
-    genvec=Vector{SubquoModuleElem{QQMPolyRingElem}}(undef,l)
-    for i in 1:l
-        genvec[i]=N[i]
-    end
-    M_is, incM_is =sub(R2, genvec)
+    N,incN=image(map(pres,0))
+    M_is,incM_is=sub(R2,gens(N))
    
-    return R, R2, M_is, incM_is
+    return R,R2,M_is,incM_is
 end
 
 
