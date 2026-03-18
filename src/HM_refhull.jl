@@ -53,7 +53,7 @@ function HM_refhull(u)
                 p=p*x[j]
             end
         end
-        genvec[i]=R2([p*p1,-p*p2])
+        genvec[i]=R2([p*p1,p*p2])
     end
     prod=x[1]
     for i in 2:n
@@ -86,7 +86,7 @@ function HM_refhull(u)
     inc=compose(incMDD,iso)
     rhM,incrhM=image(inc)
     
-    #compute a presentation in order to get possibly less generators
+    #compute a presentation in order to get possibly less generators by the minimal=true-option for presentations of non-graded modules
     pres=presentation(rhM,minimal=true)
     N,incN=image(map(pres,0))
     rhM,incrhM=sub(R2,gens(N))
