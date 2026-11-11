@@ -1,0 +1,92 @@
+###############
+#INSTALLATION
+###############
+Installation is not necessary, just include the file in a Julia REPL
+
+include("path_to/HorrocksMumford.jl")
+
+This will also load the necessary Oscar package.
+
+
+###############
+#CONTENT
+###############
+The package offers various functions for the symbolic treatment of Horrocks-Mumford sheaves. 
+Input:
+- a toric variety X, which is implicitly assumed to be smooth and semiprojective.
+- a square integer matrix u with zeroes on the diagonal, whose size equals the number of rays of X. This is tested and also its compatibility with X, that is, whether u as an endomorphism of Div_T(X) factors over the character lattice of the torus. Alternatively, you can test u by invoking is_compatible(X::NormalToricVariety, u::ZZMatrix).
+
+
+1) M = HM(X::NormalToricVariety, u::ZZMatrix)
+Output:
+- a graded module M which is the global module of HM(u) over the Cox ring of X. M is computed using intersections, cf. [Theorem 3.3, WHM_toric] of the second reference below. Note that computations take place over the coordinate ring, not the field of rational functions K. To obtain the actual module of global sections inside K^2 one needs to divide by x_1*...*x_n (the variables of the Cox ring). Still as a graded module M is correct: the division by x_1*...*x_n is built-in as a shift in degree. The underlying Cox ring can be obtained with the command base_ring(M).
+
+
+2) c = chern(X::NormalToricVariety, u::ZZMatrix)
+Output:
+- Chern class c of HM(X,u), which is computed using a free resolution of M over the Cox ring of X
+The Chern class c is an element of the Chow ring of X, which can be obtained with the command base_ring(c) or chow_ring(X).
+
+
+3) is_num_indecomposable_HM(X::NormalToricVariety, u::ZZMatrix)
+Output:
+- a boolean value, whether c(HM(X,u)) is the product of the Chern classes of two invertible sheaves. 
+If the Chern class is irreducible, then the sheaf is indecomposable.
+
+
+4) is_locally_free_HM(X::NormalToricVariety, u::ZZMatrix)
+Output:
+- a boolean value, whether HM(u) is locally free
+
+
+In [WHM_toric] we also make use of Kleinschmidt's description of smooth projective toric varieties of Picard rank 2 varieties. These are given by the projectivisation of the vector bundle, O_{P^n}\oplus\bigoplus_{i=1}^r O_{P^n}(a_i)\to P^n for 0\leq a_1\leq...\leq a_r, cf. [Klsch]. 
+
+(5) kleinschmidt(n::Integer, a::Vector)
+Input:
+- (positive) integer n
+- vector of integers a=(a_1,...,a_r)
+Output:
+- a toric morphism of the projective bundle map P(O+O(a_1)+..+O(a_r)) -> Pn; the actual variety can be obtained by domain(kleinschmidt(..)).
+
+
+###############
+#EXAMPLES
+###############
+In a Julia REPL type
+
+include("path_to/HM_toric.jl")
+
+P3 = projective_space(NormalToricVariety, 3)
+u = matrix(ZZ,[0 0 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0])
+M = HM(P3,u) 
+c = chern(P3,u)
+is_num_indecomposable_HM(P3,u)
+is_locally_free_HM(P4,u)
+
+# Classical Horrocks-Mumford bundle:
+P4= projective_space(NormalToricVariety, 4)
+u = matrix(ZZ, [0 -1 -1 1 1; -1 0 1 -1 1; -1 1 0 1 -1; 1 -1 1 0 -1; 1 1 -1 -1 0])	
+M = HM(P4,u)
+c = chern(P4,u)
+is_num_indecomposable_HM(P4,u)
+is_locally_free_HM(P4,u)
+
+X = normal_toric_variety(cube(2)) # P1 x P1
+u = matrix(ZZ,[0 0 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0])
+M = HM(X,u)
+R = base_ring(M)
+c = chern(X,U)
+A = base_ring(c)
+is_num_indecomposable_HM(X,u)
+
+X = domain(kleinschmidt(2,[2]))
+u = matrix(ZZ,[0 -1 -2 1 1;-1 0 1 0 -3;-1 1 0 0 1;1 -1 0 0 -1;3 -1 1 -1 0])
+chern(X,u)
+
+
+###############
+#References
+###############
+[Klsch] P. Kleinschmidt, "A classification of toric varieties with few generators", Aequationes Math. 35(2-3), 254--266, 1988
+[WHM_toric] K. Altmann, A. Hochenegger and F. Witt, "Horrocks-Mumford-sheaves on toric varieties", 2026
+
