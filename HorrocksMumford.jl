@@ -100,71 +100,11 @@ function HM_intersection(X::NormalToricVariety, u::ZZMatrix, messages::Bool=fals
 end
 
 
-# compute_HM
-# Given a u-matrix and a toric variety X checks whether u is compatible with X # and computes then the Cl(X)-graded module HM(u) over the Cox ring of X.
-function compute_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false)
-	if !is_compatible(X,u,messages)
-		println("\nError: matrix not compatible")
-		return nothing
-	end
-	return HM_intersection(X,u,messages)
-end
-
-
-# As the computation of HM(X,u) may take some time the result are stored in 
-# the following dictionary to avoid computing it twice.
-HM_computed = Dict{Vector,SubquoModule}()
-
-
-# HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false)
-# Given a u-matrix and a toric variety X checks whether u is compatible with X 
-# and computes then the Cl(X)-graded module HM(u) over the Cox ring of X.
-function HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false)
-	M = get!(() -> compute_HM(X,u,messages), HM_computed, [X,u])
-end
-
-
-# kleinschmidt(n::Integer, a::Vector)
-# Given an integer n and an ZZ-vector a (of length r) returns the projective 
-# bundle morphism P(O + O(a_1) + .. + O(a_r)) -> Pn whose domain is a 
-# Hirzebruch-Kleinschmidt variety.
-function kleinschmidt(n::Integer, a::Vector)
-	r = length(a)
-	I = identity_matrix(ZZ,n+r)
-
-	ray_generators = Vector[]
-	push!(ray_generators,  sum(i -> -I[i,:], 1:n) + sum(i -> a[i]*I[n+i,:], 1:r) )
-	for i=1:n+r
-		push!(ray_generators, I[i,:])
-	end
-	push!(ray_generators, sum(i -> -I[n+i,:], 1:r))
-
-	max_cones = Vector{Integer}[]
-	for i=1:n+1
-		for j=1:r+1
-			cone = collect(1:n+r+2)
-			deleteat!(cone, i)
-			deleteat!(cone, n+j)
-			push!(max_cones,  cone )
-		end
-	end
-	max_cones = incidence_matrix(max_cones)
-
-	X = normal_toric_variety(max_cones, ray_generators)
-	Pn = projective_space(NormalToricVariety,n)
-	
-	return toric_morphism(X, I[:,1:n], Pn)
-end
-
-
 # HM_reflexivehull(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false) 
 # Given a u-matrix and an (affine) toric variety X checks whether u is 
 # compatible with X and computes then the Cl(X)-graded module HM(u) over the 
 # Cox ring of X using the reflexive-hull-method.
 function HM_reflexivehull(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false)
-    if !is_affine(X)
-	println("\nWarning: The variety is not affine, hence the result might be meaningless.")
-    end
     u_pm = pm_matrix(u)
     
     R = cox_ring(X)
@@ -208,6 +148,70 @@ function HM_reflexivehull(X::NormalToricVariety, u::ZZMatrix, messages::Bool=fal
     rhM,_ = image(inc)
     
     return twist(rhM,degree(p))
+end
+
+	
+# compute_HM
+# Given a u-matrix and a toric variety X checks whether u is compatible with X # and computes then the Cl(X)-graded module HM(u) over the Cox ring of X.
+function compute_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
+	if !is_compatible(X,u,messages)
+		println("\nError: matrix not compatible")
+		return nothing
+	end
+	if method==:intersec
+		return HM_intersection(X,u,messages)
+	elseif method==:refhull
+		return HM_reflexivehull(X,u,messages)
+	else
+		println("\nError: supported methods are:\n:intersec\n:refhull")
+		return nothing
+	end
+end
+
+
+# As the computation of HM(X,u) may take some time the result are stored in 
+# the following dictionary to avoid computing it twice.
+HM_computed = Dict{Vector,SubquoModule}()
+
+
+# HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false)
+# Given a u-matrix and a toric variety X checks whether u is compatible with X 
+# and computes then the Cl(X)-graded module HM(u) over the Cox ring of X.
+function HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
+	M = get!(() -> compute_HM(X,u,messages;method=method), HM_computed, [X,u,method])
+end
+
+
+# kleinschmidt(n::Integer, a::Vector)
+# Given an integer n and an ZZ-vector a (of length r) returns the projective 
+# bundle morphism P(O + O(a_1) + .. + O(a_r)) -> Pn whose domain is a 
+# Hirzebruch-Kleinschmidt variety.
+function kleinschmidt(n::Integer, a::Vector)
+	r = length(a)
+	I = identity_matrix(ZZ,n+r)
+
+	ray_generators = Vector[]
+	push!(ray_generators,  sum(i -> -I[i,:], 1:n) + sum(i -> a[i]*I[n+i,:], 1:r) )
+	for i=1:n+r
+		push!(ray_generators, I[i,:])
+	end
+	push!(ray_generators, sum(i -> -I[n+i,:], 1:r))
+
+	max_cones = Vector{Integer}[]
+	for i=1:n+1
+		for j=1:r+1
+			cone = collect(1:n+r+2)
+			deleteat!(cone, i)
+			deleteat!(cone, n+j)
+			push!(max_cones,  cone )
+		end
+	end
+	max_cones = incidence_matrix(max_cones)
+
+	X = normal_toric_variety(max_cones, ray_generators)
+	Pn = projective_space(NormalToricVariety,n)
+	
+	return toric_morphism(X, I[:,1:n], Pn)
 end
 	
 	
@@ -301,17 +305,13 @@ function chern(X::NormalToricVariety, M::SubquoModule, messages::Bool=false)
 end
 
 
-# chern(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false)
+# chern(X::NormalToricVariety, u::ZZMatrix, 
+# messages::Bool=false;method::Symbol=:intersec)
 # Given a matrix u and a toric variety X computes the chern class of HM(X,u)
-function chern(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false)
-        M = get!(() -> HM(X,u), HM_computed, [X,u])
+function chern(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false;method::Symbol=:intersec)
+        M = get!(() -> compute_HM(X,u,messages;method=method), HM_computed, [X,u,method])
 	return chern(M,chow_ring(X),messages)
 end
-
-
-# is_num_indecomposable_HM
-# Given a matrix u and a toric variety X check whether HM(u) is numerically 
-# indecomposable. Note: numerical indecomposable => indecomposable.
 
 
 # dictionaries used for is_num_indecomposable_HM
@@ -376,13 +376,14 @@ function is_num_indecomposable_HM(X::NormalToricVariety, M::SubquoModule)
 end
 
 
-# is_num_indecomposable_HM(X::NormalToricVariety, u::ZZMatrix)
+# is_num_indecomposable_HM(X::NormalToricVariety, 
+# u::ZZMatrix;method::Symbol=:intersec)
 # Given a toric variety X and a HM-module M, checks whether c(M) = c(O_D1) * 
 # c(O_D2). If not, then M is indecomposable; if yes, M might still be 
 # indecomposable. As we have O^2 \subseteq M \subset O(-K)^2, any possible 
 # direct summand L has to be in \eff(X)\cap(-K_X-\eff(X)).
-function is_num_indecomposable_HM(X::NormalToricVariety, u::ZZMatrix)
-	M = get!(() -> HM(X,u), HM_computed, [X,u])
+function is_num_indecomposable_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
+	M = get!(() -> compute_HM(X,u,messages;method=method), HM_computed, [X,u,method])
 	return is_num_indecomposable_HM(X,M)
 end
 
@@ -391,7 +392,6 @@ end
 ################################################
 # Check (local) freeness 
 ################################################
-
 
 # is_free_affine_module (used by is_free_affine_HM)
 # Given a (graded) module M of given rank rk, the rk-th fitting ideal is 
@@ -417,10 +417,10 @@ end
 # is_free_affine_HM (used by is_locfree_HM)
 # Given a (compatible) nxn matrix u, the HM(u)-module on An is computed
 # and is freeness tested by is_free_affine_module.
-function is_free_affine_HM(u::ZZMatrix, messages::Bool=false)
+function is_free_affine_HM(u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
 	n=number_of_columns(u)
 	An=affine_space(NormalToricVariety,n)
-	M=HM(An,u,messages)
+	M=HM(An,u,messages;method=method)
 	return is_free_affine_module(M,2,messages)
 end
 
@@ -505,11 +505,12 @@ function matrices_mod_sym(X::NormalToricVariety, matrix_list::Vector)
 end
 
 
-# is_locally_free_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false)
+# is_locally_free_HM(X::NormalToricVariety, u::ZZMatrix, 
+# messages::Bool=false;method::Symbol=:intersec)
 # Given a matrix u and a toric variety X check whether HM(u) is locally free
 # assumes without test that u is compatible with X (can be tested with 
 # is_compatible(X,u)) and that X is smooth and semiprojective.
-function is_locally_free_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false)
+function is_locally_free_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
 	n=number_of_rows(u)
 	if messages
 		println("u = ")
@@ -530,7 +531,7 @@ function is_locally_free_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=f
 		if messages
 			println("On chart u' = ", u_affine)
 		end
-		if !is_free_affine_HM(u_affine,messages)
+		if !is_free_affine_HM(u_affine,messages;method=method)
 			return false
 		end
 	end

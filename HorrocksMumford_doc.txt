@@ -15,26 +15,27 @@ The package offers various functions for the symbolic treatment of Horrocks-Mumf
 Input:
 - a toric variety X, which is implicitly assumed to be smooth and semiprojective.
 - a square integer matrix u with zeroes on the diagonal, whose size equals the number of rays of X. This is tested and also its compatibility with X, that is, whether u as an endomorphism of Div_T(X) factors over the character lattice of the torus. Alternatively, you can test u by invoking is_compatible(X::NormalToricVariety, u::ZZMatrix).
+-the choice of a computational method. Via reflexive hull (method=:refhull) (cf. 3.2.1 in [WHM_toric]) or via intersections (cf. 3.2.2 in [WHM_toric]). Default is set to method:=intersec.
 
 
-1) M = HM(X::NormalToricVariety, u::ZZMatrix)
+1) M = HM(X::NormalToricVariety, u::ZZMatrix; method::Symbol=:intersec)
 Output:
-- a graded module M which is the global module of HM(u) over the Cox ring of X. M is computed using intersections, cf. [Theorem 3.3, WHM_toric] of the second reference below. Note that computations take place over the coordinate ring, not the field of rational functions K. To obtain the actual module of global sections inside K^2 one needs to divide by x_1*...*x_n (the variables of the Cox ring). Still as a graded module M is correct: the division by x_1*...*x_n is built-in as a shift in degree. The underlying Cox ring can be obtained with the command base_ring(M).
+- a graded module M which is the global module of HM(u) over the Cox ring of X. M is computed using intersections, cf. [Theorem 3.3, WHM_toric] of the second reference below. Note that computations take place over the coordinate ring, not the field of rational functions K. The underlying Cox ring can be obtained with the command base_ring(M).
 
 
-2) c = chern(X::NormalToricVariety, u::ZZMatrix)
+2) c = chern(X::NormalToricVariety, u::ZZMatrix; method::Symbol=:intersec))
 Output:
 - Chern class c of HM(X,u), which is computed using a free resolution of M over the Cox ring of X
 The Chern class c is an element of the Chow ring of X, which can be obtained with the command base_ring(c) or chow_ring(X).
 
 
-3) is_num_indecomposable_HM(X::NormalToricVariety, u::ZZMatrix)
+3) is_num_indecomposable_HM(X::NormalToricVariety, u::ZZMatrix; method::Symbol=:intersec))
 Output:
 - a boolean value, whether c(HM(X,u)) is the product of the Chern classes of two invertible sheaves. 
 If the Chern class is irreducible, then the sheaf is indecomposable.
 
 
-4) is_locally_free_HM(X::NormalToricVariety, u::ZZMatrix)
+4) is_locally_free_HM(X::NormalToricVariety, u::ZZMatrix; method::Symbol=:intersec))
 Output:
 - a boolean value, whether HM(u) is locally free
 
@@ -58,8 +59,8 @@ include("path_to/HM_toric.jl")
 
 P3 = projective_space(NormalToricVariety, 3)
 u = matrix(ZZ,[0 0 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0])
-M = HM(P3,u) 
-c = chern(P3,u)
+M = HM(P3,u;method=:refhull) 
+c = chern(P3,u;method=:refhull)
 is_num_indecomposable_HM(P3,u)
 is_locally_free_HM(P4,u)
 
