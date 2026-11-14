@@ -1,12 +1,45 @@
-# include("HorrocksMumford.jl")
+# include("path_to/HorrocksMumford.jl")
 
 using Oscar
+
+
 
 ################################################
 # Setup HM-sheaves as modules over the Cox ring
 ################################################
+# As the computation of HM(X,u) may take some time the result are stored in 
+# the following dictionary to avoid computing it twice.
+HM_computed = Dict{Vector,SubquoModule}()
 
-# is_compatible (used in HM)
+
+# HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; 
+# method::Symbol=:intersec)
+# Given a u-matrix and a toric variety X checks whether u is compatible with X 
+# and computes then the Cl(X)-graded module HM(u) over the Cox ring of X.
+function HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
+	M = get!(() -> compute_HM(X,u,messages;method=method), HM_computed, [X,u,method])
+end
+
+
+# compute_HM
+# Given a u-matrix and a toric variety X checks whether u is compatible with X # and computes then the Cl(X)-graded module HM(u) over the Cox ring of X.
+function compute_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
+	if !is_compatible(X,u,messages)
+		println("\nError: matrix not compatible")
+		return nothing
+	end
+	if method==:intersec
+		return HM_intersection(X,u,messages)
+	elseif method==:refhull
+		return HM_reflexivehull(X,u,messages)
+	else
+		println("\nError: supported methods are:\n:intersec\n:refhull")
+		return nothing
+	end
+end
+
+
+# is_compatible
 # Checks whether a u-matrix is compatible, that is,
 # 1) square matrix
 # 2) only zeros on diagonal
@@ -45,31 +78,7 @@ function is_compatible(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false)
 end
 
 
-# pm_matrix (used in HM)
-# Decomposes an integer matrix u into pair [u_plus,u_minus] of matrices with 
-# non-negative entries such that u=u_plus-u_minus.
-function pm_matrix(u::ZZMatrix)
-	u_plus=matrix(u)
-	for i=1:number_of_rows(u)
-		for j=1:number_of_columns(u)
-			if u_plus[i,j]<0
-				u_plus[i,j]=0
-			end
-		end
-	end
-	return [u_plus,u_plus-u]
-end
-
-
-# x_Sigma (used in HM)
-# Given a ring R and some vector u_column returns the monomial \prod x_i^u_i.
-function x_Sigma(u_column::Vector{ZZRingElem}, R::MPolyDecRing)
-	n=length(u_column)
-	return prod( (i -> R[i]^(u_column[i])).(1:n) )
-end
-
-
-# HM_intersection (used in HM)
+# HM_intersection
 # Given a u-matrix and a toric variety X checks whether u is compatible with X 
 # and computes then the Cl(X)-graded module HM(u) over the Cox ring of X using # the intersection-method.
 function HM_intersection(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false)
@@ -100,7 +109,7 @@ function HM_intersection(X::NormalToricVariety, u::ZZMatrix, messages::Bool=fals
 end
 
 
-# HM_reflexivehull(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false) 
+# HM_reflexivehull
 # Given a u-matrix and an (affine) toric variety X checks whether u is 
 # compatible with X and computes then the Cl(X)-graded module HM(u) over the 
 # Cox ring of X using the reflexive-hull-method.
@@ -133,7 +142,7 @@ function HM_reflexivehull(X::NormalToricVariety, u::ZZMatrix, messages::Bool=fal
     #creates the dual map incMD=(incM)^*:R^{2*}\to M^*
     incMD = hom(R2d,Md,[preimage(incMd,compose(incM,incR2d(g))) for g in gens(R2d)])
     
-    #creates the doule duals
+    #creates the double duals
     R2dd, incR2dd = hom(R2d,R1)
     Mdd, incMdd   = hom(Md, R1)
     
@@ -150,38 +159,298 @@ function HM_reflexivehull(X::NormalToricVariety, u::ZZMatrix, messages::Bool=fal
     return twist(rhM,degree(p))
 end
 
+
+# pm_matrix
+# Decomposes an integer matrix u into pair [u_plus,u_minus] of matrices with 
+# non-negative entries such that u=u_plus-u_minus.
+function pm_matrix(u::ZZMatrix)
+	u_plus=matrix(u)
+	for i=1:number_of_rows(u)
+		for j=1:number_of_columns(u)
+			if u_plus[i,j]<0
+				u_plus[i,j]=0
+			end
+		end
+	end
+	return [u_plus,u_plus-u]
+end
+
+
+# x_Sigma 
+# Given a ring R and some vector u_column returns the monomial \prod x_i^u_i.
+function x_Sigma(u_column::Vector{ZZRingElem}, R::MPolyDecRing)
+	n=length(u_column)
+	return prod( (i -> R[i]^(u_column[i])).(1:n) )
+end
+
+
+
+################################################
+# Chern classes
+################################################
+# dictionaries used for is_num_indecomposable_HM
+chow_computed = Dict{NormalToricVariety, MPolyQuoRing}()
+
+
+# chern(X::NormalToricVariety, u::ZZMatrix,messages::Bool=false; 
+# method::Symbol=:intersec)
+# Given a matrix u and a projective toric variety X computes the chern class 
+# of HM(X,u)
+function chern(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
+	if !is_projective(X)
+		println("\nError: the variety is not projective")
+		return nothing
+	end
 	
-# compute_HM
-# Given a u-matrix and a toric variety X checks whether u is compatible with X # and computes then the Cl(X)-graded module HM(u) over the Cox ring of X.
-function compute_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
-	if !is_compatible(X,u,messages)
-		println("\nError: matrix not compatible")
-		return nothing
-	end
-	if method==:intersec
-		return HM_intersection(X,u,messages)
-	elseif method==:refhull
-		return HM_reflexivehull(X,u,messages)
-	else
-		println("\nError: supported methods are:\n:intersec\n:refhull")
-		return nothing
-	end
-end
-
-
-# As the computation of HM(X,u) may take some time the result are stored in 
-# the following dictionary to avoid computing it twice.
-HM_computed = Dict{Vector,SubquoModule}()
-
-
-# HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false)
-# Given a u-matrix and a toric variety X checks whether u is compatible with X 
-# and computes then the Cl(X)-graded module HM(u) over the Cox ring of X.
-function HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
 	M = get!(() -> compute_HM(X,u,messages;method=method), HM_computed, [X,u,method])
+	
+	return chern(M,get_chow(X),messages)
 end
 
 
+# get_chow
+# computes and stores the Chow ring of X in order to avoid "parents must 
+# match" issues
+function get_chow(X::NormalToricVariety)
+    return get!(() -> chow_ring(X), chow_computed, X)
+end
+
+
+# chern(M::Union{SubquoModule,FreeMod}, A::MPolyQuoRing{QQMPolyRingElem}, 
+# messages::Bool=false)
+# Given a module M over a (Cox) ring and given a (Chow) ring A computes the 
+# chern class of the sheaf associated to M in A.
+function chern(M::Union{SubquoModule,FreeMod}, A::MPolyQuoRing{QQMPolyRingElem}, messages::Bool=false)
+	F=free_resolution(M)
+	if messages
+		println("Free resolution of M:")
+		display(F)
+	end
+        e=A(1)
+        degsD=degree_lifting(base_ring(M),A)
+        ch=e
+        for i=0:length(F)
+                degsF=-degree.(gens(F[i]))
+                for D=degsF
+                	cOD=sum((k -> D[k]*degsD[k]).(1:length(degsD)))
+                	if i%2 == 0
+                                ch=ch*(e+cOD)
+                        else
+                                ch=ch*invert(cOD) 
+                        end
+                end
+        end
+        return ch
+end
+
+
+# chern(X::NormalToricVariety, M::SubquoModule, messages::Bool=false) 
+# Given a module M over a (Cox) ring and given a (projective) toric variety X
+# computes the chern class of the sheaf associated to M in the Chow ring of X.
+function chern(X::NormalToricVariety, M::SubquoModule, messages::Bool=false)
+	if !is_projective(X)
+		println("\nError: the variety is not projective")
+		return nothing
+	end
+	return chern(M,get_chow(X),messages)
+end
+
+
+# degree_lifting
+# Given (Cox) ring R and (Chow) ring A returns a list of (linear combinations 
+# of) variables such that the corresponding divisors generate A. This lifting 
+# assumes that the grading group is some Z^n.
+function degree_lifting(R::MPolyDecRing{QQFieldElem, QQMPolyRing},A::MPolyQuoRing{QQMPolyRingElem})
+	G = grading_group(R)
+	if !is_free(G)
+		println("\nError: Grading group is not free (not implemented)")
+		return nothing
+	end
+	degs=(i->(j->(degree.(gens(R)))[i][j]).(1:rank(G))).(1:length(gens(R))) # matrix of degrees
+	for submat=combinations(degs,rank(G))
+		if abs(det(matrix(ZZ,submat)))==1 # find suitable subset of deg(x_i) that generate G
+			baseind=(row -> findfirst(d->row==d,degs)).(submat) # find their positions in matrix of degrees
+			basemat=matrix(ZZ,(i->degs[i]).(baseind)) # turn the corresponding degrees into a matrix
+			invmat=matrix(A,basemat^(-1)) # inverse to get from generating degree to (linear combination) of variables
+			basevars=(i->A[i]).(baseind) # get the variables to the found positions
+			return invmat*basevars 
+		end
+	end
+	println("\nError: Grading group not generated by degrees of variables (something is wrong), degrees are:")
+	display(degs)
+	return nothing
+end
+
+
+# invert
+# Given an element c of a (Chow) ring A returns inverse 1-c+c^2-c^3... of 1+c 
+# [sic!].
+function invert(c::MPolyQuoRingElem{QQMPolyRingElem})
+	e=parent(c)(1)
+	result=e
+	#i=0
+	sign=1 # (-1)^i
+	ci=e # ci=c^i
+	while ci != 0
+		#i=i+1
+		ci=ci*c
+		sign=sign*(-1)
+		result = result + sign*ci
+	end
+	return result
+end
+
+
+
+################################################
+# Indecomposability
+################################################
+# dictionaries used for is_num_indecomposable_HM
+lattice_points_computed = Dict{NormalToricVariety,Vector}()
+chern_classes_computed = Dict{NormalToricVariety,Vector}()
+
+
+# is_num_indecomposable_HM(X::NormalToricVariety, 
+# u::ZZMatrix;method::Symbol=:intersec)
+# Given a projective toric variety X and a HM-module M, checks whether 
+# c(M) = c(O_D1) * c(O_D2). If not, then M is indecomposable; if yes, M might 
+# still be indecomposable. As we have O^2 \subseteq M \subset O(-K)^2, any 
+# possible direct summand L has to be in \eff(X)\cap(-K_X-\eff(X)).
+function is_num_indecomposable_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
+	if !is_projective(X)
+		println("\nError: the variety is not projective")
+		return nothing
+	end
+	
+	M = get!(() -> compute_HM(X,u,messages;method=method), HM_computed, [X,u,method])
+	return is_num_indecomposable_HM(X,M)
+end
+
+
+# is_num_indecomposable_HM
+# Given a toric variety X and a HM-module M, checks whether c(M) = c(O_D1) * 
+# c(O_D2). If not, then M is indecomposable; if yes, M might still be 
+# indecomposable. As we have O^2 \subseteq M \subset O(-K)^2, any possible 
+# direct summand L has to be in \eff(X)\cap(-K_X-\eff(X)).
+function is_num_indecomposable_HM(X::NormalToricVariety, M::SubquoModule)
+	chern_Ds = get!(() -> compute_chern_Ds(X), chern_classes_computed, X)
+        c_HM = chern(X,M)
+        for cD1=chern_Ds
+                for cD2=chern_Ds
+                        if c_HM == cD1*cD2
+                                return false
+                        end
+                end
+        end
+        return true
+end
+
+
+# compute_chern_Ds
+# Given a toric variety X computes the chern classes of all divisors in
+# \eff(X)\cap(-K_X-\eff(X)).
+function compute_chern_Ds(X::NormalToricVariety)
+	lPs = get!(() -> compute_lattice_points(X), lattice_points_computed, X )
+	return compute_chern_Ds(X,lPs)
+end
+
+
+# compute_lattice_points
+# Given a toric variety X computes all the lattice points in
+# eff(X)\cap(-K_X-eff(X)) in Pic(X)\tensor Q.
+function compute_lattice_points(X::NormalToricVariety)
+        f = map_from_torusinvariant_cartier_divisor_group_to_picard_group(X)
+        CDivX = domain(f)
+        PicX = codomain(f)
+        Q = polyhedron(cone(matrix(f)))
+        mK = f(sum( (i -> CDivX[i]).(1:number_of_rays(X)) ))
+        P = convex_hull([ getindex(mK,i) for i in 1:rank(PicX) ])
+        lPs = lattice_points(intersect(Q,P+(-1)*Q))
+	return collect(lPs)
+end
+
+
+# compute_chern_Ds
+# Given a toric variety X and lattice points in Pic(X) computes their Chern 
+# classes.
+function compute_chern_Ds(X::NormalToricVariety, lPs::Vector)
+        R = cox_ring(X)
+        G = grading_group(R)
+        possible_Ds = ( D -> sum( (i -> D[i]*G[i]).(1:rank(G))) ).(lPs)
+        O = graded_free_module(cox_ring(X),1)
+        A = get_chow(X)
+        chern_Ds = ( D -> chern( twist(O,D), A ) ).(possible_Ds)
+        return chern_Ds
+end
+
+
+
+################################################
+# Check (local) freeness 
+################################################
+# is_locally_free_HM(X::NormalToricVariety, u::ZZMatrix, 
+# messages::Bool=false;method::Symbol=:intersec)
+# Given a matrix u and a toric variety X check whether HM(u) is locally free
+# assumes without test that u is compatible with X (can be tested with 
+# is_compatible(X,u)) and that X is smooth and semiprojective.
+function is_locally_free_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
+	n=number_of_rows(u)
+	if messages
+		println("u = ")
+		display(u)
+	end
+	max_cones_mat=maximal_cones(IncidenceMatrix,X)
+	u_affines=[]
+	for i=1:number_of_maximal_cones(X)
+		sigmaind=max_cones_mat[i,:] # list of booleans whether i-th ray belongs to sigma
+		sigma=(Polymake.findnz(sigmaind))[1] # get the position of the rays that belong to sigma
+		push!(u_affines,u[sigma,sigma])
+	end
+	for u_affine=u_affines
+		if !is_free_affine_HM(u_affine,messages;method=method)
+			return false
+		end
+	end
+	return true
+end
+
+
+# is_free_affine_HM
+# Given a (compatible) nxn matrix u, the HM(u)-module on An is computed
+# and is freeness tested by is_free_affine_module.
+function is_free_affine_HM(u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
+	n=number_of_columns(u)
+	An=affine_space(NormalToricVariety,n)
+	M=HM(An,u,messages;method=method)
+	return is_free_affine_module(M,2,messages)
+end
+
+
+# is_free_affine_module (used by is_free_affine_HM)
+# Given a (graded) module M of given rank rk, the rk-th fitting ideal is 
+# computed to test freeness.
+function is_free_affine_module(M::SubquoModule, rk::Integer=2, messages::Bool=false)
+	R=base_ring(M)
+	one_ideal=ideal(R,1)
+	if messages
+		println("Compute ", rk, "-th fitting ideal")
+	end
+	fitting=fitting_ideal(M,rk)
+	if fitting != one_ideal 
+		if messages
+			println(rk, "-th fitting ideal:")
+			display(fitting)
+		end
+		return false
+	end
+	return true
+end
+
+
+
+################################################
+# Various
+################################################
 # kleinschmidt(n::Integer, a::Vector)
 # Given an integer n and an ZZ-vector a (of length r) returns the projective 
 # bundle morphism P(O + O(a_1) + .. + O(a_r)) -> Pn whose domain is a 
@@ -213,329 +482,8 @@ function kleinschmidt(n::Integer, a::Vector)
 	
 	return toric_morphism(X, I[:,1:n], Pn)
 end
-	
-	
-	
-################################################
-# Chern classes and indecomposability
-################################################
-
-# degree_lifting (used in chern)
-# Given (Cox) ring R and (Chow) ring A returns a list of (linear combinations 
-# of) variables such that the corresponding divisors generate A. This lifting 
-# assumes that the grading group is some Z^n.
-function degree_lifting(R::MPolyDecRing{QQFieldElem, QQMPolyRing},A::MPolyQuoRing{QQMPolyRingElem})
-	G = grading_group(R)
-	if !is_free(G)
-		println("\nError: Grading group is not free (not implemented)")
-		return nothing
-	end
-	degs=(i->(j->(degree.(gens(R)))[i][j]).(1:rank(G))).(1:length(gens(R))) # matrix of degrees
-	for submat=combinations(degs,rank(G))
-		if abs(det(matrix(ZZ,submat)))==1 # find suitable subset of deg(x_i) that generate G
-			baseind=(row -> findfirst(d->row==d,degs)).(submat) # find their positions in matrix of degrees
-			basemat=matrix(ZZ,(i->degs[i]).(baseind)) # turn the corresponding degrees into a matrix
-			invmat=matrix(A,basemat^(-1)) # inverse to get from generating degree to (linear combination) of variables
-			basevars=(i->A[i]).(baseind) # get the variables to the found positions
-			return invmat*basevars 
-		end
-	end
-	println("\nError: Grading group not generated by degrees of variables (something is wrong), degrees are:")
-	display(degs)
-	return nothing
-end
-
-
-# invert (used in chern)
-# Given an element c of a (Chow) ring A returns inverse 1-c+c^2-c^3... of 1+c 
-# [sic!].
-function invert(c::MPolyQuoRingElem{QQMPolyRingElem})
-	e=parent(c)(1)
-	result=e
-	#i=0
-	sign=1 # (-1)^i
-	ci=e # ci=c^i
-	while ci != 0
-		#i=i+1
-		ci=ci*c
-		sign=sign*(-1)
-		result = result + sign*ci
-	end
-	return result
-end
-
-
-# chern(M::Union{SubquoModule,FreeMod}, A::MPolyQuoRing{QQMPolyRingElem}, 
-# messages::Bool=false)
-# Given a module M over a (Cox) ring and given a (Chow) ring A computes the 
-# chern class of the sheaf associated to M in A.
-function chern(M::Union{SubquoModule,FreeMod}, A::MPolyQuoRing{QQMPolyRingElem}, messages::Bool=false)
-        F=free_resolution(M)
-	if messages
-		println("Free resolution of M:")
-		display(F)
-	end
-        e=A(1)
-        degsD=degree_lifting(base_ring(M),A)
-        ch=e
-        for i=0:length(F)
-                degsF=-degree.(gens(F[i]))
-                for D=degsF
-                	cOD=sum((k -> D[k]*degsD[k]).(1:length(degsD)))
-                	if i%2 == 0
-                                ch=ch*(e+cOD)
-                        else
-                                ch=ch*invert(cOD) 
-                        end
-                end
-        end
-        return ch
-end
-	
-	
-# chern(X::NormalToricVariety, M::SubquoModule, messages::Bool=false) 
-# Given a module M over a (Cox) ring and given a (projective) toric variety X
-# computes the chern class of the sheaf associated to M in the Chow ring of X.
-function chern(X::NormalToricVariety, M::SubquoModule, messages::Bool=false)
-	if !is_projective(X)
-		println("\nError: the variety is not projective")
-		return nothing
-	end
-	return chern(M,chow_ring(X),messages)
-end
-
-
-# chern(X::NormalToricVariety, u::ZZMatrix, 
-# messages::Bool=false;method::Symbol=:intersec)
-# Given a matrix u and a toric variety X computes the chern class of HM(X,u)
-function chern(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false;method::Symbol=:intersec)
-        M = get!(() -> compute_HM(X,u,messages;method=method), HM_computed, [X,u,method])
-	return chern(M,chow_ring(X),messages)
-end
-
-
-# dictionaries used for is_num_indecomposable_HM
-lattice_points_computed = Dict{NormalToricVariety,Vector}()
-chern_classes_computed = Dict{NormalToricVariety,Vector}()
-
-
-# compute_lattice_points (used for is_num_indecomposable_HM)
-# Given a toric variety X computes all the lattice points in
-# eff(X)\cap(-K_X-eff(X)) in Pic(X)\tensor Q.
-function compute_lattice_points(X::NormalToricVariety)
-        f = map_from_torusinvariant_cartier_divisor_group_to_picard_group(X)
-        CDivX = domain(f)
-        PicX = codomain(f)
-        Q = polyhedron(cone(matrix(f)))
-        mK = f(sum( (i -> CDivX[i]).(1:number_of_rays(X)) ))
-        P = convex_hull([ getindex(mK,i) for i in 1:rank(PicX) ])
-        lPs = lattice_points(intersect(Q,P+(-1)*Q))
-	return collect(lPs)
-end
-
-				
-# compute_chern_Ds (used for is_num_indecomposable_HM)
-# Given a toric variety X and lattice points in Pic(X) computes their chern 
-# classes.
-function compute_chern_Ds(X::NormalToricVariety, lPs::Vector)
-        R = cox_ring(X)
-        G = grading_group(R)
-        possible_Ds = ( D -> sum( (i -> D[i]*G[i]).(1:rank(G))) ).(lPs)
-        O = graded_free_module(cox_ring(X),1)
-        A = chow_ring(X)
-        chern_Ds = ( D -> chern( twist(O,D), A ) ).(possible_Ds)
-        return chern_Ds
-end
-
-
-# compute_chern_Ds (used for is_num_indecomposable_HM)
-# Given a toric variety X computes the chern classes of all divisors in
-# \eff(X)\cap(-K_X-\eff(X)).
-function compute_chern_Ds(X::NormalToricVariety)
-	lPs = get!(() -> compute_lattice_points(X), lattice_points_computed, X )
-	return compute_chern_Ds(X,lPs)
-end
-
-
-# is_num_indecomposable_HM(X::NormalToricVariety, M::SubquoModule)
-# Given a toric variety X and a HM-module M, checks whether c(M) = c(O_D1) * 
-# c(O_D2). If not, then M is indecomposable; if yes, M might still be 
-# indecomposable. As we have O^2 \subseteq M \subset O(-K)^2, any possible 
-# direct summand L has to be in \eff(X)\cap(-K_X-\eff(X)).
-function is_num_indecomposable_HM(X::NormalToricVariety, M::SubquoModule)
-	chern_Ds = get!(() -> compute_chern_Ds(X), chern_classes_computed, X)
-        c_HM = chern( X, M )
-        for cD1=chern_Ds
-                for cD2=chern_Ds
-                        if c_HM == cD1*cD2
-                                return false
-                        end
-                end
-        end
-        return true
-end
-
-
-# is_num_indecomposable_HM(X::NormalToricVariety, 
-# u::ZZMatrix;method::Symbol=:intersec)
-# Given a toric variety X and a HM-module M, checks whether c(M) = c(O_D1) * 
-# c(O_D2). If not, then M is indecomposable; if yes, M might still be 
-# indecomposable. As we have O^2 \subseteq M \subset O(-K)^2, any possible 
-# direct summand L has to be in \eff(X)\cap(-K_X-\eff(X)).
-function is_num_indecomposable_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
-	M = get!(() -> compute_HM(X,u,messages;method=method), HM_computed, [X,u,method])
-	return is_num_indecomposable_HM(X,M)
-end
-
-
-
-################################################
-# Check (local) freeness 
-################################################
-
-# is_free_affine_module (used by is_free_affine_HM)
-# Given a (graded) module M of given rank rk, the rk-th fitting ideal is 
-# computed to test freeness.
-function is_free_affine_module(M::SubquoModule, rk::Integer=2, messages::Bool=false)
-	R=base_ring(M)
-	one_ideal=ideal(R,1)
-	if messages
-		println("Compute ", rk, "-th fitting ideal")
-	end
-	fitting=fitting_ideal(M,rk)
-	if fitting != one_ideal 
-		if messages
-			println(rk, "-th fitting ideal:")
-			display(fitting)
-		end
-		return false
-	end
-	return true
-end
-
-
-# is_free_affine_HM (used by is_locfree_HM)
-# Given a (compatible) nxn matrix u, the HM(u)-module on An is computed
-# and is freeness tested by is_free_affine_module.
-function is_free_affine_HM(u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
-	n=number_of_columns(u)
-	An=affine_space(NormalToricVariety,n)
-	M=HM(An,u,messages;method=method)
-	return is_free_affine_module(M,2,messages)
-end
-
-
-# matrices_mod_sym (used by is_locfree_HM)
-# Given a list of nxn-matrices returns the list modulo the action of Sym_n.
-function matrices_mod_sym(matrix_list::Vector, messages::Bool=false; Progress::Integer=0)
-	if length(matrix_list)==0
-		return matrix_list
-	end
-	n=number_of_columns(matrix_list[1])
-        permG=(g->matrix_repr(g).rowval).(AbstractAlgebra.SymmetricGroup(n)) # permutations as tuples
-        if messages
-	        println("There are ", length(matrix_list), " matrices ignoring permutations, and ", length(permG), " permutations")
-	end
-        result = []
-        iteration=0
-        for u=matrix_list
-        	if Progress>0
-        		if mod(iteration,Progress)==0
-        			println(trunc(Int,iteration/length(matrix_list)*100), "%")
-				flush(stdout)
-        		end
-        	end
-                Gxu=(g -> u[g,g]).(permG)
-                Gxu=vcat(Gxu, (u -> -u).(Gxu))
-                u_in_result=false
-                for gu=Gxu
-                        if gu in result
-                                u_in_result=true
-                                break
-                        end
-                end
-                if !u_in_result
-                        push!(result,u)
-                end
-                iteration=iteration+1
-        end
-        return result
-end
-
-		
-# matrices_mod_sym (used by is_locfree_HM)
-# Given a toric variety X and a list of nxn-matrices returns the list modulo 
-# the symmetries of X.
-function matrices_mod_sym(X::NormalToricVariety, matrix_list::Vector)
-	if is_projective_space(X) || is_affine(X)
-		return matrices_mod_sym(matrix_list)
-	end
-	D=Int[]
-	for i=sum(rays(nef_cone(X))) 
-		push!(D,Int(i))
-	end
-	D=toric_line_bundle(X,D)
-	if !is_ample(D)
-		println("\nError: could not find easily an ample line bundle on X")
-		return nothing
-	end
-	P = polyhedron(toric_divisor(D))
-	n=number_of_rays(X)
-	mat=transpose(map_from_torusinvariant_weil_divisor_group_to_class_group(X).map)
-	G=automorphism_group(P, action=:on_facets)
-	G=(g->permutation_matrix(ZZ,g)).(G)
-	Ginv=(g->g^(-1)).(G)
-	result=[]
-        result = []
-        for u=matrix_list
-     	        Gxu=(i -> G[i]*u*Ginv[i]).(1:length(G))
-                Gxu=vcat(Gxu, (u -> -u).(Gxu))
-                u_in_result=false
-                for gu=Gxu
-                        if gu in result
-                                u_in_result=true
-                                break
-                        end
-                end
-                if !u_in_result
-                        push!(result,u)
-                end
-        end
-        return result
-end
-
-
-# is_locally_free_HM(X::NormalToricVariety, u::ZZMatrix, 
-# messages::Bool=false;method::Symbol=:intersec)
-# Given a matrix u and a toric variety X check whether HM(u) is locally free
-# assumes without test that u is compatible with X (can be tested with 
-# is_compatible(X,u)) and that X is smooth and semiprojective.
-function is_locally_free_HM(X::NormalToricVariety, u::ZZMatrix, messages::Bool=false; method::Symbol=:intersec)
-	n=number_of_rows(u)
-	if messages
-		println("u = ")
-		display(u)
-	end
-	max_cones_mat=maximal_cones(IncidenceMatrix,X)
-	u_affines=[]
-	for i=1:number_of_maximal_cones(X)
-		sigmaind=max_cones_mat[i,:] # list of booleans whether i-th ray belongs to sigma
-		sigma=(Polymake.findnz(sigmaind))[1] # get the position of the rays that belong to sigma
-		push!(u_affines,u[sigma,sigma])
-	end
-	u_affines=matrices_mod_sym(u_affines,messages)
-	if messages
-		println("Up to permutation and sign, need to check # of charts: ",length(u_affines))
-	end
-	for u_affine=u_affines
-		if messages
-			println("On chart u' = ", u_affine)
-		end
-		if !is_free_affine_HM(u_affine,messages;method=method)
-			return false
-		end
-	end
-	return true
-end
-
 ;
+
+	
+	
+	
