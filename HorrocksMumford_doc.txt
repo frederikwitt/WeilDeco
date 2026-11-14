@@ -18,9 +18,9 @@ Input:
 -the choice of a computational method. Via reflexive hull (method=:refhull) (cf. 3.2.1 in [WHM_toric]) or via intersections (cf. 3.2.2 in [WHM_toric]). Default is set to method:=intersec.
 
 
-1) M = HM(X::NormalToricVariety, u::ZZMatrix; method::Symbol=:intersec)
+1) G = HM(X::NormalToricVariety, u::ZZMatrix; method::Symbol=:intersec)
 Output:
-- a graded module M which is the global module of HM(u) over the Cox ring of X. M is computed using intersections, cf. [Theorem 3.3, WHM_toric] of the second reference below. Note that computations take place over the coordinate ring, not the field of rational functions K. The underlying Cox ring can be obtained with the command base_ring(M).
+- a graded module G which is the global module of HM(u) over the Cox ring of X. G is computed using intersections, cf. [Theorem 3.3, WHM_toric] of the second reference below. Note that computations take place over the coordinate ring, not the field of rational functions K. The underlying Cox ring can be obtained with the command base_ring(G).
 
 
 2) c = chern(X::NormalToricVariety, u::ZZMatrix; method::Symbol=:intersec))
@@ -59,30 +59,33 @@ include("path_to/HM_toric.jl")
 
 P3 = projective_space(NormalToricVariety, 3)
 u = matrix(ZZ,[0 0 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0])
-M = HM(P3,u;method=:refhull) 
+G = HM(P3,u;method=:refhull) 
 c = chern(P3,u;method=:refhull)
 is_num_indecomposable_HM(P3,u)
-is_locally_free_HM(P4,u)
+is_locally_free_HM(P3,u)
 
 # Classical Horrocks-Mumford bundle:
 P4= projective_space(NormalToricVariety, 4)
 u = matrix(ZZ, [0 -1 -1 1 1; -1 0 1 -1 1; -1 1 0 1 -1; 1 -1 1 0 -1; 1 1 -1 -1 0])	
-M = HM(P4,u)
+G = HM(P4,u)
+R = base_ring(G)
 c = chern(P4,u)
+A = base_ring(c)
 is_num_indecomposable_HM(P4,u)
 is_locally_free_HM(P4,u)
 
 X = normal_toric_variety(cube(2)) # P1 x P1
-u = matrix(ZZ,[0 0 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0])
-M = HM(X,u)
-R = base_ring(M)
-c = chern(X,U)
-A = base_ring(c)
-is_num_indecomposable_HM(X,u)
+v = matrix(ZZ,[0 0 0 0; 0 0 0 0; 0 0 0 0; 0 0 0 0])
+G = HM(X,v)
+c = chern(X,v)
+is_num_indecomposable_HM(X,v)
+is_locally_free_HM(X,v)
 
 X = domain(kleinschmidt(2,[2]))
 u = matrix(ZZ,[0 -1 -2 1 1;-1 0 1 0 -3;-1 1 0 0 1;1 -1 0 0 -1;3 -1 1 -1 0])
 chern(X,u)
+is_num_indecomposable_HM(X,u)
+is_locally_free_HM(X,u)
 
 
 ###############
